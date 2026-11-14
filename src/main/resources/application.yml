@@ -1,0 +1,78 @@
+spring:
+  application:
+    name: paykit
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/paykit}
+    username: ${DB_USER:paykit}
+    password: ${DB_PASSWORD:paykit}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+  flyway:
+    enabled: true
+  threads:
+    virtual:
+      enabled: true
+  jackson:
+    default-property-inclusion: non_null
+  thymeleaf:
+    cache: false
+
+server:
+  port: ${PORT:8080}
+
+paykit:
+  public-url: ${PUBLIC_URL:http://localhost:8080}
+  stripe:
+    # sk_test_... from the Stripe dashboard. Any value works against stripe-mock.
+    api-key: ${STRIPE_API_KEY:sk_test_123}
+    # Empty = api.stripe.com. Point it at stripe-mock (http://localhost:12111) to run fully offline.
+    api-base: ${STRIPE_API_BASE:}
+    # whsec_... printed by `stripe listen` or shown on the dashboard webhook endpoint
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_local_dev_secret}
+    webhook-tolerance: ${STRIPE_WEBHOOK_TOLERANCE:300s}
+    sync-catalog-on-startup: ${STRIPE_SYNC_CATALOG:true}
+  billing:
+    grace-period: ${DUNNING_GRACE_PERIOD:7d}
+    # Downgrades: create_prorations (credit on the next invoice) or none
+    downgrade-proration: ${DOWNGRADE_PRORATION:create_prorations}
+  events:
+    max-attempts: ${EVENT_MAX_ATTEMPTS:8}
+    retry-base-delay: 10s
+    retry-max-delay: 1h
+    retry-poll-interval: ${EVENT_RETRY_POLL:15s}
+  outbox:
+    max-attempts: ${OUTBOX_MAX_ATTEMPTS:6}
+    base-delay: 5s
+    max-delay: 30m
+    batch-size: 20
+    poll-interval: ${OUTBOX_POLL:5s}
+    # Optional: POST every notification as JSON to this URL (mail service, Slack, n8n...). Empty = log only.
+    webhook-url: ${NOTIFY_WEBHOOK_URL:}
+  admin:
+    username: ${ADMIN_USER:admin}
+    password: ${ADMIN_PASSWORD:change-me}
+  demo:
+    # Offline demo: Stripe API calls go to stripe-mock, and the app plays Stripe's part by sending itself
+    # real signed webhooks (checkout completed, renewals, failed payments). Never enable with live keys.
+    enabled: ${DEMO_MODE:false}
+    webhook-target: ${DEMO_WEBHOOK_TARGET:http://localhost:${server.port}/webhooks/stripe}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+    persist-authorization: true
+  api-docs:
+    path: /v3/api-docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
