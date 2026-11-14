@@ -1,0 +1,50 @@
+name: paykit
+
+# Offline by default: Stripe API calls go to stripe-mock and the app plays Stripe's webhook side (DEMO_MODE).
+# For real Stripe test mode put STRIPE_API_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_API_BASE= (empty) and DEMO_MODE=false
+# in .env, and forward webhooks with `stripe listen --forward-to localhost:8080/webhooks/stripe`.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: paykit
+      POSTGRES_USER: paykit
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-paykit}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paykit -d paykit"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  stripe-mock:
+    image: stripe/stripe-mock:latest
+    ports:
+      - "127.0.0.1:${STRIPE_MOCK_HOST_PORT:-12111}:12111"
+
+  app:
+    build: .
+    image: paykit:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+      stripe-mock:
+        condition: service_started
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/paykit
+      DB_USER: paykit
+      DB_PASSWORD: ${DB_PASSWORD:-paykit}
+      STRIPE_API_BASE: ${STRIPE_API_BASE-http://stripe-mock:12111}
+      DEMO_MODE: ${DEMO_MODE:-true}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+    ports:
+      - "${APP_HOST_PORT:-8080}:8080"
+
+volumes:
+  pgdata:
