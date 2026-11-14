@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Webhook log · PayKit')}"></head>
+<body>
+<header th:replace="~{layout :: top(false)}"></header>
+<main>
+  <h1>Stripe webhook log</h1>
+  <p class="sub">Every verified event is stored once (primary key = Stripe event id). Redeliveries are counted, not re-applied. Failed events retry with exponential backoff.</p>
+  <div class="stats">
+    <div th:each="c : ${counts}"><b th:text="${c.value}">0</b><span th:text="${c.key}">processed</span></div>
+    <div><b th:text="${redeliveries}">0</b><span>duplicates absorbed</span></div>
+  </div>
+  <div class="card">
+    <table>
+      <tr><th>Received</th><th>Event</th><th>Account</th><th>Status</th><th>Result</th></tr>
+      <tr th:each="e : ${events}">
+        <td class="mono" th:text="${#temporals.format(e.receivedAt, 'HH:mm:ss')}"></td>
+        <td><div class="mono" th:text="${e.type}"></div><div class="small muted mono" th:text="${e.id}"></div></td>
+        <td class="small" th:text="${e.accountId != null ? (accounts[e.accountId] ?: #strings.substring(e.accountId.toString(), 0, 8)) : '–'}"></td>
+        <td><span class="badge" th:classappend="${'b-' + e.status}" th:text="${e.status}"></span>
+            <div class="small muted" th:if="${e.deliveries > 1}" th:text="${'delivered ' + e.deliveries + '×'}"></div>
+            <div class="small muted" th:if="${e.attempts > 1}" th:text="${e.attempts + ' attempts'}"></div></td>
+        <td class="small"><span th:text="${e.note}"></span><span class="mono" style="color:#b91c1c" th:if="${e.lastError}" th:text="${e.lastError}"></span></td>
+      </tr>
+    </table>
+  </div>
+  <div class="card">
+    <h2>Outbox (customer notifications)</h2>
+    <table>
+      <tr><th>#</th><th>Topic</th><th>To</th><th>Subject</th><th>Status</th><th>Attempts</th></tr>
+      <tr th:each="m : ${outbox}">
+        <td class="mono" th:text="${m.id}"></td><td class="mono" th:text="${m.topic}"></td>
+        <td class="small" th:text="${m.payload.to}"></td><td th:text="${m.payload.subject}"></td>
+        <td><span class="badge" th:classappend="${'b-' + m.status}" th:text="${m.status}"></span></td><td th:text="${m.attempts}"></td>
+      </tr>
+    </table>
+  </div>
+</main>
+</body>
+</html>

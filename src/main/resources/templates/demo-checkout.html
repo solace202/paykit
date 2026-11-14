@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Checkout · PayKit (test mode)')}"></head>
+<body style="background:#fff">
+<div style="display:grid;grid-template-columns:1fr 1fr;min-height:100vh">
+  <div style="background:#f6f9fc;padding:60px 56px">
+    <div class="logo">Pay<span>Kit</span> <span class="tag">TEST MODE</span></div>
+    <p class="muted" style="margin:40px 0 4px" th:text="${'Subscribe to PayKit ' + plan.name}">Subscribe to PayKit Pro</p>
+    <div th:if="${session.trialDays > 0}">
+      <div style="font-size:34px;font-weight:700" th:text="${session.trialDays + ' days free'}">14 days free</div>
+      <p class="muted" th:text="${'Then $' + #numbers.formatDecimal(price.unitAmount / 100.0, 1, 2) + ' per ' + price.interval}"></p>
+    </div>
+    <div th:unless="${session.trialDays > 0}">
+      <div style="font-size:34px;font-weight:700" th:text="${'$' + #numbers.formatDecimal(price.unitAmount / 100.0, 1, 2)}">$29.00</div>
+      <p class="muted" th:text="${'per ' + price.interval}"></p>
+    </div>
+    <table style="margin-top:30px;max-width:380px">
+      <tr><td th:text="${'PayKit ' + plan.name + ' (' + price.lookupKey + ')'}"></td><td style="text-align:right" th:text="${'$' + #numbers.formatDecimal(price.unitAmount / 100.0, 1, 2)}"></td></tr>
+      <tr th:if="${session.trialDays > 0}"><td>Free trial</td><td style="text-align:right" th:text="${session.trialDays + ' days'}"></td></tr>
+      <tr><td><b>Total due today</b></td><td style="text-align:right"><b th:text="${session.trialDays > 0 ? '$0.00' : '$' + #numbers.formatDecimal(price.unitAmount / 100.0, 1, 2)}"></b></td></tr>
+    </table>
+  </div>
+  <div style="padding:60px 56px;max-width:520px">
+    <h2>Pay with card</h2>
+    <label class="small muted">Email</label><input type="email" th:value="${account.email}" disabled style="margin-bottom:14px">
+    <label class="small muted">Card information</label>
+    <input type="text" value="4242 4242 4242 4242" disabled>
+    <div class="row" style="margin:6px 0 14px"><input type="text" value="12 / 34" disabled style="width:48%"><input type="text" value="123" disabled style="width:48%"></div>
+    <label class="small muted">Cardholder name</label><input type="text" value="Alex Morgan" disabled style="margin-bottom:20px">
+    <form method="post" th:action="@{/demo/checkout/{id}/pay(id=${session.id})}">
+      <button type="submit" style="width:100%;padding:13px" th:text="${session.trialDays > 0 ? 'Start trial' : 'Subscribe'}">Subscribe</button>
+    </form>
+    <p class="small muted" style="margin-top:16px">Offline demo of Stripe Checkout. With real test keys the customer is sent to <span class="mono">checkout.stripe.com</span>, and Stripe sends the same webhooks this page triggers.</p>
+    <p class="small mono muted" th:text="${session.stripeSessionId}"></p>
+  </div>
+</div>
+</body>
+</html>

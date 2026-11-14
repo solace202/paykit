@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Billing · PayKit')}"></head>
+<body>
+<header th:replace="~{layout :: top(${demo})}"></header>
+<main>
+  <div class="flash ok" th:if="${param.checkout != null}">Checkout complete. Stripe confirmed the subscription by webhook.</div>
+  <div class="flash ok" th:if="${param.portal != null}">Demo mode: this is where the Stripe Customer Portal would open (update card, download invoices, cancel).</div>
+  <div class="flash ok" th:if="${msg}" th:text="${msg}"></div>
+  <div class="flash err" th:if="${error}" th:text="${error}"></div>
+
+  <p class="muted small" style="margin:0">Billing for</p>
+  <h1 th:text="${account.email}">alex@example.com</h1>
+  <p class="sub mono small" th:text="${'account ' + account.id + ' · Stripe customer ' + (account.stripeCustomerId ?: '–')}"></p>
+
+  <div class="banner" th:if="${dunning}">
+    <b>Payment failed.</b>
+    <span th:text="${'Attempt ' + dunning.failedAttempts + '. Stripe retries automatically'
+      + (dunning.nextAttemptAt != null ? ' on ' + #temporals.format(dunning.nextAttemptAt, 'MMM d, HH:mm') : '')
+      + '. Paid features stay on until ' + #temporals.format(dunning.graceUntil, 'MMM d') + ' (grace period).'}"></span>
+    Update the card in the customer portal to fix it.
+  </div>
+
+  <div class="grid2">
+    <div>
+      <div class="card">
+        <h2>Subscription</h2>
+        <div th:if="${sub == null}" class="muted">No subscription. This account is on the Free plan. <a th:href="@{/pricing}">See plans</a></div>
+        <dl class="kv" th:if="${sub != null}">
+          <dt>Plan</dt><dd><b th:text="${#strings.capitalize(sub.planCode)}">Pro</b> <span class="muted" th:text="${'(' + sub.priceLookupKey + ')'}"></span></dd>
+          <dt>Status</dt><dd><span class="badge" th:classappend="${'b-' + sub.status}" th:text="${sub.status}">active</span>
+              <span class="small muted" th:if="${sub.cancelAtPeriodEnd}">cancels at period end</span></dd>
+          <dt th:if="${sub.trialEnd != null and sub.status == 'trialing'}">Trial ends</dt>
+          <dd th:if="${sub.trialEnd != null and sub.status == 'trialing'}" th:text="${#temporals.format(sub.trialEnd, 'MMM d, yyyy')}"></dd>
+          <dt th:text="${sub.cancelAtPeriodEnd ? 'Ends on' : (sub.status == 'canceled' ? 'Ended' : 'Renews on')}">Renews on</dt>
+          <dd th:text="${sub.status == 'canceled' ? #temporals.format(sub.canceledAt ?: sub.updatedAt, 'MMM d, yyyy') : #temporals.format(sub.currentPeriodEnd, 'MMM d, yyyy')}"></dd>
+          <dt>Stripe id</dt><dd class="mono" th:text="${sub.stripeSubscriptionId}"></dd>
+        </dl>
+        <div class="row" style="margin-top:16px" th:if="${sub != null and sub.status != 'canceled'}">
+          <form method="post" th:action="@{/account/{id}/change(id=${account.id})}" class="row">
+            <select name="price" style="width:auto">
+              <th:block th:each="p : ${plans}"><option th:each="pr : ${p.prices}" th:value="${p.code + ':' + pr.interval}"
+                  th:selected="${pr.lookupKey == sub.priceLookupKey}"
+                  th:text="${p.name + ' · $' + #numbers.formatInteger(pr.unitAmount / 100, 1) + ' / ' + pr.interval}"></option></th:block>
+            </select>
+            <button class="ghost" type="submit">Change plan</button>
+          </form>
+          <form method="post" th:action="@{/account/{id}/cancel(id=${account.id})}" th:unless="${sub.cancelAtPeriodEnd}"><button class="danger" type="submit">Cancel at period end</button></form>
+          <form method="post" th:action="@{/account/{id}/resume(id=${account.id})}" th:if="${sub.cancelAtPeriodEnd}"><button class="ghost" type="submit">Resume</button></form>
+          <form method="post" th:action="@{/account/{id}/portal(id=${account.id})}"><button class="ghost" type="submit">Manage billing</button></form>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Entitlements <span class="badge b-active" th:text="${ent.plan}" style="margin-left:6px">pro</span></h2>
+        <p class="small muted" style="margin-top:-6px" th:text="${'Why: ' + ent.reason}"></p>
+        <div class="feat">
+          <div><b th:text="${ent.features.projects == -1 ? '∞' : ent.features.projects}">50</b><span>projects</span></div>
+          <div><b th:text="${ent.features.seats}">10</b><span>seats</span></div>
+          <div><b th:text="${#numbers.formatInteger(ent.features.api_calls_per_month, 1, 'COMMA')}">250,000</b><span>API calls / month</span></div>
+          <div><b th:text="${ent.features.priority_support ? 'Yes' : 'No'}">Yes</b><span>priority support</span></div>
+          <div><b th:text="${ent.features.audit_log ? 'Yes' : 'No'}">Yes</b><span>audit log</span></div>
+          <div><b th:text="${ent.features.sso ? 'Yes' : 'No'}">No</b><span>SSO</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Invoices</h2>
+        <div th:if="${#lists.isEmpty(invoices)}" class="muted small">No invoices yet.</div>
+        <table th:unless="${#lists.isEmpty(invoices)}">
+          <tr><th>Date</th><th>Reason</th><th>Amount</th><th>Status</th><th>Attempts</th></tr>
+          <tr th:each="i : ${invoices}">
+            <td th:text="${#temporals.format(i.created, 'MMM d, HH:mm')}"></td>
+            <td th:text="${i.billingReason}"></td>
+            <td th:text="${'$' + #numbers.formatDecimal(i.amountDue / 100.0, 1, 2)}"></td>
+            <td><span class="badge" th:classappend="${'b-' + i.status}" th:text="${i.status}"></span></td>
+            <td th:text="${i.attemptCount}"></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <div class="card demo" th:if="${demo and sub != null}">
+        <h2>Play Stripe's side <span class="tag">demo</span></h2>
+        <p class="small muted" style="margin-top:-6px">Each button sends this app a signed webhook, exactly like Stripe would.</p>
+        <div class="row">
+          <form method="post" th:action="@{/demo/accounts/{id}/end-trial(id=${account.id})}" th:if="${sub.status == 'trialing'}"><button class="small ghost">End trial (first charge)</button></form>
+          <form method="post" th:action="@{/demo/accounts/{id}/trial-will-end(id=${account.id})}" th:if="${sub.status == 'trialing'}"><button class="small ghost">Trial ends in 3 days</button></form>
+          <form method="post" th:action="@{/demo/accounts/{id}/renewal-failed(id=${account.id})}" th:if="${sub.status != 'canceled'}"><button class="small ghost">Renewal payment fails</button></form>
+          <form method="post" th:action="@{/demo/accounts/{id}/retry-succeeded(id=${account.id})}" th:if="${dunning}"><button class="small ghost">Retry succeeds</button></form>
+          <form method="post" th:action="@{/demo/accounts/{id}/final-failure(id=${account.id})}" th:if="${dunning}"><button class="small ghost">All retries fail</button></form>
+          <form method="post" th:action="@{/demo/accounts/{id}/redeliver(id=${account.id})}"><button class="small ghost">Redeliver last event</button></form>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Webhook events</h2>
+        <table>
+          <tr><th>Event</th><th>Result</th></tr>
+          <tr th:each="e : ${events}">
+            <td><div class="mono" th:text="${e.type}"></div><div class="small muted" th:text="${#temporals.format(e.receivedAt, 'HH:mm:ss') + (e.deliveries > 1 ? ' · delivered ' + e.deliveries + '×' : '')}"></div></td>
+            <td><span class="badge" th:classappend="${'b-' + e.status}" th:text="${e.status}"></span><div class="small" th:text="${e.note}"></div></td>
+          </tr>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Notifications (outbox)</h2>
+        <div th:if="${#lists.isEmpty(outbox)}" class="muted small">Nothing sent yet.</div>
+        <table th:unless="${#lists.isEmpty(outbox)}">
+          <tr th:each="m : ${outbox}">
+            <td><div th:text="${m.payload.subject}"></div><div class="small muted mono" th:text="${m.topic}"></div></td>
+            <td><span class="badge" th:classappend="${'b-' + m.status}" th:text="${m.status}"></span></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

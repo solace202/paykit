@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title th:text="${title}">PayKit</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<header class="top" th:fragment="top(demo)">
+  <div class="in">
+    <a class="logo" th:href="@{/}">Pay<span>Kit</span></a>
+    <span class="tag" th:if="${demo}">TEST MODE · stripe-mock</span>
+    <nav class="nav"><a th:href="@{/pricing}">Pricing</a><a th:href="@{/admin/events}">Webhook log</a><a th:href="@{/swagger-ui.html}">API</a></nav>
+  </div>
+</header>
+</body>
+</html>

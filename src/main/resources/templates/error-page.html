@@ -1,0 +1,6 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('PayKit')}"></head>
+<body><header th:replace="~{layout :: top(false)}"></header>
+<main><div class="flash err" th:text="${message}">Error</div><a th:href="@{/pricing}">Back to pricing</a></main></body>
+</html>

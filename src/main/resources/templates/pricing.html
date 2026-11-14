@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Pricing · PayKit')}"></head>
+<body>
+<header th:replace="~{layout :: top(${demo})}"></header>
+<main>
+  <h1>Simple pricing for growing teams</h1>
+  <p class="sub">Start with a 14-day free trial on Starter or Pro. Upgrade, downgrade or cancel any time: changes are prorated by Stripe.</p>
+  <div class="toggle">
+    <a th:href="@{/pricing(interval='month')}" th:classappend="${interval == 'month'} ? 'on'">Monthly</a>
+    <a th:href="@{/pricing(interval='year')}" th:classappend="${interval == 'year'} ? 'on'">Yearly</a>
+  </div><span class="save">2 months free on yearly</span>
+  <div class="plans">
+    <div class="plan" th:each="p : ${plans}" th:classappend="${p.code == 'pro'} ? 'pop'">
+      <h3 th:text="${p.name}">Pro</h3>
+      <th:block th:with="pr=${priceFor[p.code]}">
+        <div class="price" th:if="${p.code == 'free'}">$0<small> / forever</small></div>
+        <div class="price" th:if="${p.code != 'free'}">
+          <span th:text="${'$' + #numbers.formatInteger(pr.unitAmount / 100, 1)}">$29</span><small th:text="${interval == 'year' ? ' / year' : ' / month'}"> / month</small>
+        </div>
+      </th:block>
+      <div class="trial"><span th:if="${p.trialDays > 0}" th:text="${p.trialDays + '-day free trial'}">14-day free trial</span></div>
+      <ul>
+        <li th:text="${p.features.projects == -1 ? 'Unlimited projects' : (p.features.projects == 1 ? '1 project' : p.features.projects + ' projects')}"></li>
+        <li th:text="${p.features.seats == 1 ? '1 seat' : p.features.seats + ' seats'}"></li>
+        <li th:text="${#numbers.formatInteger(p.features.api_calls_per_month, 1, 'COMMA') + ' API calls / month'}"></li>
+        <li th:classappend="${p.features.priority_support} ? '' : 'no'">Priority support</li>
+        <li th:classappend="${p.features.audit_log} ? '' : 'no'">Audit log</li>
+        <li th:classappend="${p.features.sso} ? '' : 'no'">SAML single sign-on</li>
+      </ul>
+      <form th:if="${p.code != 'free'}" method="post" th:action="@{/checkout}">
+        <input type="hidden" name="plan" th:value="${p.code}"><input type="hidden" name="interval" th:value="${interval}">
+        <input type="email" name="email" placeholder="you@company.com" required>
+        <button type="submit" th:text="${p.trialDays > 0 ? 'Start free trial' : 'Subscribe'}">Subscribe</button>
+      </form>
+      <div th:if="${p.code == 'free'}" class="muted small">Every account starts here. No card needed.</div>
+    </div>
+  </div>
+  <p class="muted small" style="margin-top:22px">Payments are handled by Stripe Checkout. Card details never touch this server.</p>
+</main>
+</body>
+</html>
